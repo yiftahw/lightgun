@@ -37,10 +37,10 @@ void IRCamera::Write_2bytes(uint8_t data1, uint8_t data2)
     delay(10);
 }
 
-std::array<Point, 4> IRCamera::snapshot()
+Snapshot IRCamera::snapshot()
 {
     std::array<uint8_t, 16> data = {0};
-    std::array<Point, 4> points = {0};
+    Snapshot result;
     
     // sequence of commands to take a snapshot
     // taken from the DFRobot wiki
@@ -67,9 +67,9 @@ std::array<Point, 4> IRCamera::snapshot()
         uint8_t y_idx = (i * 3) + 2;
         uint8_t msb_idx = (i * 3) + 3;
 
-        points[i].x = (data[x_idx]) | ((data[msb_idx] & X_MSB_MASK) << X_MSB_SHIFT);
-        points[i].y = (data[y_idx]) | ((data[msb_idx] & Y_MSB_MASK) << Y_MSB_SHIFT);
+        result.points[i].x = (data[x_idx]) | ((data[msb_idx] & X_MSB_MASK) << X_MSB_SHIFT);
+        result.points[i].y = (data[y_idx]) | ((data[msb_idx] & Y_MSB_MASK) << Y_MSB_SHIFT);
     }
 
-    return points;
+    return result;
 }
