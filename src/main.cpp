@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
 
 #include <string>
 
@@ -7,17 +9,7 @@
 #include "OnBoardLED.h"
 #include "IRCamera.h"
 
-void print(std::array<Point, 4> data)
-{
-    for (uint32_t i = 0; i < 4; i++)
-    {
-        Serial.print("Point ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(data[i].to_string().c_str());
-    }
-    Serial.flush();
-}
+#include "secrets.h"
 
 // globals
 const uint8_t BUTTON_PIN = 13; // GPIO13
@@ -25,45 +17,47 @@ const uint8_t I2C_DATA_PIN = 21; // GPIO21
 const uint8_t I2C_CLOCK_PIN = 22; // GPIO22
 const uint8_t CAMERA_I2C_ADDRESS = 0x58;
 
-PushButton button(BUTTON_PIN);
+// objects
+//PushButton button(BUTTON_PIN);
 IRCamera camera(I2C_DATA_PIN, I2C_CLOCK_PIN, CAMERA_I2C_ADDRESS);
+AsyncWebServer server(80);
 
-void discover_i2c()
+ArRequestHandlerFunction sendCapture = [](AsyncWebServerRequest *request)
 {
-    // discover any i2c devices
-    Wire.begin(I2C_DATA_PIN, I2C_CLOCK_PIN);
-    for (uint8_t address = 1; address < 127; address++)
-    {
-        Wire.beginTransmission(address);
-        uint8_t error = Wire.endTransmission();
-        if (error == 0)
-        {
-            Serial.print("I2C device found at address 0x");
-            if (address < 16)
-            {
-                Serial.print("0");
-            }
-            Serial.println(address, HEX);
-        }
-    }
-}
+    auto snap = camera.snapshot();
+    request->send(200, "text/plain", snap.to_string().c_str());
+};
 
 void setup() 
 {
     Serial.begin(115200); // initialize serial communication
-    button.setup();
+
+    //button.setup();
+
     camera.setup();
+
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    if (WiFi.waitForConnectResult() != WL_CONNECTED)
+    {
+        Serial.println("WiFi Failed!");
+        while (1) delay(1000);
+    }
+
+    Serial.println("WiFi connected");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+
+    server.on("/", HTTP_GET, sendCapture);
+
+    server.onNotFound([](AsyncWebServerRequest *request)
+    {
+        request->send(404, "text/plain", "Not found");
+    });
+    server.begin();
 }
 
 void loop() 
 {
-    if (button.isPressed())
-    {
-        Serial.println("Button is pressed");
-        auto result = camera.snapshot();
-        print(result);
-        delay(1000); // 1s delay
-    }
-    delay(100); // 100ms delay
 
 }
